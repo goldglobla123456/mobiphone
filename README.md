@@ -46,6 +46,19 @@ A complete ecommerce website for selling phones and related devices/accessories.
    `$env:SESSION_SECRET="your_secret"`
    `$env:FIREBASE_SERVICE_ACCOUNT_JSON=Get-Content .\serviceAccount.json -Raw`
 
+   For social login (optional):
+
+   - `BASE_URL=http://localhost:3000`
+   - `GOOGLE_CLIENT_ID=...`
+   - `GOOGLE_CLIENT_SECRET=...`
+   - `FACEBOOK_APP_ID=...`
+   - `FACEBOOK_APP_SECRET=...`
+
+   OAuth callback URLs:
+
+   - Google: `http://localhost:3000/auth/google/callback`
+   - Facebook: `http://localhost:3000/auth/facebook/callback`
+
 3. Install dependencies
 
    npm install

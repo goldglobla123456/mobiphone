@@ -9,6 +9,20 @@
     <input type="password" name="password" required />
     <button class="btn" type="submit"><%= t('auth.login') %></button>
   </form>
+
+  <div style="margin-top: 12px; display: grid; gap: 8px;">
+    <% if (googleOAuthEnabled) { %>
+    <a class="btn" href="/auth/google">Đăng nhập với Google</a>
+    <% } else { %>
+    <button class="btn" type="button" disabled>Google chưa cấu hình</button>
+    <% } %>
+
+    <% if (facebookOAuthEnabled) { %>
+    <a class="btn" href="/auth/facebook">Đăng nhập với Facebook</a>
+    <% } else { %>
+    <button class="btn" type="button" disabled>Facebook chưa cấu hình</button>
+    <% } %>
+  </div>
 </section>
 
 <%- include('partials/footer') %>

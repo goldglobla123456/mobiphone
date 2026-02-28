@@ -1,15 +1,18 @@
 const path = require('path');
 const fs = require('fs');
+require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const FacebookStrategy = require('passport-facebook').Strategy;
 const { t } = require('./i18n');
 const {
   initDb,
   findUserByEmail,
   createUser,
-  getFeaturedProducts,
   listProducts,
   getProductById,
   createProduct,
@@ -26,6 +29,13 @@ const {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const BASE_URL = String(process.env.BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
+const googleOAuthEnabled = Boolean(
+  process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+);
+const facebookOAuthEnabled = Boolean(
+  process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET
+);
 const uploadDir = path.join(__dirname, '..', 'public', 'uploads');
 
 if (!fs.existsSync(uploadDir)) {
@@ -63,6 +73,7 @@ app.use(
     cookie: { maxAge: 1000 * 60 * 60 * 24 }
   })
 );
+app.use(passport.initialize());
 
 function setFlash(req, type, message) {
   req.session.flash = { type, message };
@@ -130,10 +141,75 @@ function normalizeRichDescription(html) {
   return { html: safeHtml, plain };
 }
 
-app.get('/', asyncHandler(async (req, res) => {
-  const featured = await getFeaturedProducts(6);
-  res.render('home', { featured });
-}));
+function getProfileEmail(profile) {
+  const firstEmail = profile && Array.isArray(profile.emails) ? profile.emails[0] : null;
+  return String((firstEmail && firstEmail.value) || '').trim().toLowerCase();
+}
+
+async function loginWithOAuthProfile(req, res, oauthUser) {
+  const { provider, profile } = oauthUser;
+  const email = getProfileEmail(profile);
+
+  if (!email) {
+    setFlash(req, 'error', `Cannot login with ${provider}: no email returned by provider.`);
+    return res.redirect('/login');
+  }
+
+  const name = String(profile.displayName || email.split('@')[0] || 'User').trim();
+  let user = await findUserByEmail(email);
+
+  if (!user) {
+    const oauthPasswordHash = bcrypt.hashSync(`oauth:${provider}:${profile.id}:${Date.now()}`, 10);
+    user = await createUser(name, email, oauthPasswordHash);
+  }
+
+  req.session.user = {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    is_admin: user.is_admin === 1
+  };
+
+  setFlash(req, 'success', `Logged in with ${provider} successfully.`);
+  return res.redirect('/products');
+}
+
+if (googleOAuthEnabled) {
+  passport.use(
+    'google',
+    new GoogleStrategy(
+      {
+        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        callbackURL: `${BASE_URL}/auth/google/callback`
+      },
+      (_accessToken, _refreshToken, profile, done) => {
+        done(null, { provider: 'Google', profile });
+      }
+    )
+  );
+}
+
+if (facebookOAuthEnabled) {
+  passport.use(
+    'facebook',
+    new FacebookStrategy(
+      {
+        clientID: process.env.FACEBOOK_APP_ID,
+        clientSecret: process.env.FACEBOOK_APP_SECRET,
+        callbackURL: `${BASE_URL}/auth/facebook/callback`,
+        profileFields: ['id', 'displayName', 'emails']
+      },
+      (_accessToken, _refreshToken, profile, done) => {
+        done(null, { provider: 'Facebook', profile });
+      }
+    )
+  );
+}
+
+app.get('/', (_req, res) => {
+  res.redirect('/products');
+});
 
 app.get('/products', asyncHandler(async (req, res) => {
   const category = (req.query.category || '').trim();
@@ -154,6 +230,64 @@ app.get('/products/:id', asyncHandler(async (req, res) => {
 app.get('/register', (req, res) => {
   if (req.session.user) return res.redirect('/');
   res.render('register');
+});
+
+app.get('/auth/google', (req, res, next) => {
+  if (!googleOAuthEnabled) {
+    setFlash(req, 'error', 'Google login is not configured.');
+    return res.redirect('/login');
+  }
+  return passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
+});
+
+app.get('/auth/google/callback', (req, res, next) => {
+  if (!googleOAuthEnabled) {
+    setFlash(req, 'error', 'Google login is not configured.');
+    return res.redirect('/login');
+  }
+
+  return passport.authenticate('google', { session: false }, async (err, oauthUser) => {
+    if (err || !oauthUser) {
+      setFlash(req, 'error', 'Google login failed.');
+      return res.redirect('/login');
+    }
+
+    try {
+      return await loginWithOAuthProfile(req, res, oauthUser);
+    } catch {
+      setFlash(req, 'error', 'Google login failed.');
+      return res.redirect('/login');
+    }
+  })(req, res, next);
+});
+
+app.get('/auth/facebook', (req, res, next) => {
+  if (!facebookOAuthEnabled) {
+    setFlash(req, 'error', 'Facebook login is not configured.');
+    return res.redirect('/login');
+  }
+  return passport.authenticate('facebook', { scope: ['email'] })(req, res, next);
+});
+
+app.get('/auth/facebook/callback', (req, res, next) => {
+  if (!facebookOAuthEnabled) {
+    setFlash(req, 'error', 'Facebook login is not configured.');
+    return res.redirect('/login');
+  }
+
+  return passport.authenticate('facebook', { session: false }, async (err, oauthUser) => {
+    if (err || !oauthUser) {
+      setFlash(req, 'error', 'Facebook login failed.');
+      return res.redirect('/login');
+    }
+
+    try {
+      return await loginWithOAuthProfile(req, res, oauthUser);
+    } catch {
+      setFlash(req, 'error', 'Facebook login failed.');
+      return res.redirect('/login');
+    }
+  })(req, res, next);
 });
 
 app.post('/register', asyncHandler(async (req, res) => {
@@ -182,7 +316,10 @@ app.post('/register', asyncHandler(async (req, res) => {
 
 app.get('/login', (req, res) => {
   if (req.session.user) return res.redirect('/');
-  res.render('login');
+  res.render('login', {
+    googleOAuthEnabled,
+    facebookOAuthEnabled
+  });
 });
 
 app.post('/login', asyncHandler(async (req, res) => {

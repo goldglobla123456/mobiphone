@@ -1,7 +1,23 @@
 const admin = require('firebase-admin');
 const bcrypt = require('bcryptjs');
+const fs = require('fs');
+const path = require('path');
 
 function getServiceAccount() {
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON_FILE) {
+    try {
+      const absolutePath = path.resolve(process.cwd(), process.env.FIREBASE_SERVICE_ACCOUNT_JSON_FILE);
+      const fileContent = fs.readFileSync(absolutePath, 'utf8');
+      const parsed = JSON.parse(fileContent);
+      if (parsed.private_key) {
+        parsed.private_key = String(parsed.private_key).replace(/\\n/g, '\n');
+      }
+      return parsed;
+    } catch {
+      throw new Error('Invalid FIREBASE_SERVICE_ACCOUNT_JSON_FILE. It must point to a valid JSON file.');
+    }
+  }
+
   if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
     try {
       const parsed = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
@@ -37,7 +53,7 @@ function initFirebase() {
     admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
   } else {
     throw new Error(
-      'Firebase credentials missing. Set FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_PROJECT_ID + FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY.'
+      'Firebase credentials missing. Set FIREBASE_SERVICE_ACCOUNT_JSON_FILE, FIREBASE_SERVICE_ACCOUNT_JSON, or FIREBASE_PROJECT_ID + FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY.'
     );
   }
 
