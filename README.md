@@ -35,6 +35,12 @@ A complete ecommerce website for selling phones and related devices/accessories.
    - `SESSION_SECRET=your_secret`
    - `FIREBASE_SERVICE_ACCOUNT_JSON={...full service account json...}`
 
+   Or (recommended on Railway) set 3 variables instead of JSON:
+
+   - `FIREBASE_PROJECT_ID=your-project-id`
+   - `FIREBASE_CLIENT_EMAIL=service-account-email`
+   - `FIREBASE_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n`
+
    PowerShell example:
 
    `$env:SESSION_SECRET="your_secret"`

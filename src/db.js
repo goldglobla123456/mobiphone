@@ -2,12 +2,31 @@ const admin = require('firebase-admin');
 const bcrypt = require('bcryptjs');
 
 function getServiceAccount() {
-  if (!process.env.FIREBASE_SERVICE_ACCOUNT_JSON) return null;
-  try {
-    return JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-  } catch {
-    throw new Error('Invalid FIREBASE_SERVICE_ACCOUNT_JSON. It must be valid JSON.');
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    try {
+      const parsed = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+      if (parsed.private_key) {
+        parsed.private_key = String(parsed.private_key).replace(/\\n/g, '\n');
+      }
+      return parsed;
+    } catch {
+      throw new Error('Invalid FIREBASE_SERVICE_ACCOUNT_JSON. It must be valid JSON.');
+    }
   }
+
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+  if (projectId && clientEmail && privateKey) {
+    return {
+      project_id: projectId,
+      client_email: clientEmail,
+      private_key: String(privateKey).replace(/\\n/g, '\n')
+    };
+  }
+
+  return null;
 }
 
 function initFirebase() {
@@ -17,7 +36,9 @@ function initFirebase() {
   if (serviceAccount) {
     admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
   } else {
-    admin.initializeApp({ credential: admin.credential.applicationDefault() });
+    throw new Error(
+      'Firebase credentials missing. Set FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_PROJECT_ID + FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY.'
+    );
   }
 
   return admin.firestore();
