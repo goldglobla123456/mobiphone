@@ -9,37 +9,46 @@
   <body>
     <header class="topbar">
       <div class="container topbar-main">
-        <a class="logo" href="/">PhoneStore</a>
+        <a class="logo" href="/products">PhoneStore</a>
 
         <form class="top-search" action="/products" method="get">
           <input type="text" name="q" placeholder="Bạn tìm gì hôm nay..." />
-          <button type="submit">Tìm</button>
+          <button type="submit"><span class="nav-icon">🔎</span>Tìm</button>
         </form>
-
-        <nav class="nav-links">
-          <a href="/products">Sản phẩm</a>
-          <% if (lang === 'vi') { %>
-          <a class="lang-btn" href="/language/en">🇺🇸</a>
-          <% } else { %>
-          <a class="lang-btn" href="/language/vi">🇻🇳</a>
-          <% } %>
-
-          <% if (currentUser) { %>
-          <a href="/orders">Đơn hàng</a>
-          <a href="/cart">Giỏ hàng (<%= cartCount %>)</a>
-          <% if (currentUser.is_admin) { %>
-          <a href="/admin/products">Admin</a>
-          <% } %>
-          <form action="/logout" method="post" class="inline-form">
-            <button class="link-btn" type="submit">Đăng xuất</button>
-          </form>
-          <% } else { %>
-          <a href="/login">Đăng nhập</a>
-          <a href="/register" class="btn btn-sm">Đăng ký</a>
-          <% } %>
-        </nav>
       </div>
 
+      <div class="topbar-menu-wrap">
+        <div class="container">
+          <nav class="nav-links">
+            <a class="nav-item" href="/products"><span class="nav-icon">📱</span>Sản phẩm</a>           
+            <% if (currentUser) { %>
+            <a class="nav-item" href="/orders"><span class="nav-icon">📦</span>Đơn hàng</a>
+            <a class="nav-item" href="/cart"><span class="nav-icon">🛒</span>Giỏ hàng (<%= cartCount %>)</a>
+            <% if (currentUser.is_admin) { %>
+            <a class="nav-item" href="/admin/products"><span class="nav-icon">⚙️</span>Admin</a>
+            <% } %>
+            <form action="/logout" method="post" class="inline-form">
+              <button class="link-btn nav-item" type="submit"><span class="nav-icon">↩</span>Đăng xuất</button>
+            </form>
+            <% } else { %>
+            <a class="nav-item" href="/login"><span class="nav-icon">🔐</span>Đăng nhập</a>
+            <a href="/register" class="btn btn-sm"><span class="nav-icon">✨</span>Đăng ký</a>
+            <% } %>
+            <form class="lang-form" action="#" method="get">
+              <label for="lang-switch" class="lang-label"><span class="nav-icon">🌐</span></label>
+              <select
+                id="lang-switch"
+                name="lang"
+                class="lang-select"
+                onchange="if(this.value){window.location.href='/language/' + this.value;}"
+              >
+                <option value="vi" <%= lang === 'vi' ? 'selected' : '' %>>Tiếng Việt</option>
+                <option value="en" <%= lang === 'en' ? 'selected' : '' %>>English</option>
+              </select>
+            </form>
+          </nav>
+        </div>
+      </div>
     </header>
 
     <main class="container">
